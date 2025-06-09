@@ -8,7 +8,7 @@
 
 类似分享：
 
-传统方法：https://github.com/zhc7/ConnectFour、 https://github.com/jiegec/FourChess
+传统方法：https://github.com/zhc7/ConnectFour https://github.com/jiegec/FourChess
 
  神经网络方法：https://github.com/GoodCoder666/katac4
 

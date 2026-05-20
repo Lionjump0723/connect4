@@ -99,3 +99,12 @@ g++ -std=c++17 -O2 -DONLINE_JUDGE main.cpp Strategy.cpp Logic.cpp -o connect4
 ```
 
 对外接口保持不变：`extern "C" Point* getPoint(...)` 与 `clearPoint(...)`（见 `Strategy.h`）。
+
+## 性能基准
+
+固定 `9x9` 到 `12x12` 若干局面，输出 init / copy / search / selection 耗时与节点数（CSV）：
+
+```bash
+g++ -std=c++17 -O2 benchmark-harness.cpp Strategy.cpp Logic.cpp -o benchmark-harness
+./benchmark-harness
+```

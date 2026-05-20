@@ -227,6 +227,17 @@ uint32_t GTable::search(uint32_t nid, const BoardConfig& cfg, const Plate& root)
 
 // --- Search helpers ---
 
+using Clock = std::chrono::high_resolution_clock;
+
+static double elapsed_ms(Clock::time_point start, Clock::time_point end) {
+    return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
+struct RootPick {
+    int y = 0;
+    uint32_t root_count = 0;
+};
+
 static void init_search_graph(GTable& g, const Plate& root) {
     Plate::Key root_key = root.get_key();
     g.root_id = g.hash_table[g.find_slot(root_key)];
@@ -254,9 +265,9 @@ static void run_search_loop(GTable& g, const BoardConfig& cfg, const Plate& root
     }
 }
 
-static int select_root_column(GTable& g) {
+static RootPick select_root_column(GTable& g) {
     Node& root_node = g.node_info[g.root_id];
-    g.update(g.root_id);
+    const uint32_t root_count = g.update(g.root_id);
     int y = 0;
     if (root_node.S == CERTAIN) {
         if (root_node.e_end > 0) {
@@ -286,7 +297,7 @@ static int select_root_column(GTable& g) {
         }
         PRINT_CERR << ch_Q << " " << y << std::endl;
     }
-    return y;
+    return {y, root_count};
 }
 
 // --- SearchContext ---
@@ -318,10 +329,51 @@ Point* SearchContext::get_point(const int* top,
 
     PRINT_CERR << "end graph size: node " << graph.node_info.size() << ", edge "
                << graph.edge_info.size() << std::endl;
-    PRINT_CERR << "root count: " << graph.update(graph.root_id) << std::endl;
 
-    int y = select_root_column(graph);
-    return new Point(top[y] - 1, y);
+    const RootPick pick = select_root_column(graph);
+    PRINT_CERR << "root count: " << pick.root_count << std::endl;
+    return new Point(top[pick.y] - 1, pick.y);
+}
+
+SearchBenchmarkResult SearchContext::benchmark_position(int M, int N, int noX, int noY,
+                                                        const int* top, const int* raw_board) {
+    SearchBenchmarkResult result;
+    result.M = M;
+    result.N = N;
+    result.noX = noX;
+    result.noY = noY;
+
+    const auto t_init_start = Clock::now();
+    board.configure(M, N, noX, noY);
+    root = make_root_plate(board, raw_board);
+    const auto t_init_end = Clock::now();
+    result.init_ms = elapsed_ms(t_init_start, t_init_end);
+
+    const auto t_copy_start = Clock::now();
+    init_search_graph(graph, root);
+    const auto t_copy_end = Clock::now();
+    result.copy_ms = elapsed_ms(t_copy_start, t_copy_end);
+
+    result.nodes_before = static_cast<uint32_t>(graph.node_info.size());
+    result.edges_before = static_cast<uint32_t>(graph.edge_info.size());
+
+    const auto t_search_start = Clock::now();
+    run_search_loop(graph, board, root, t_search_start);
+    const auto t_search_end = Clock::now();
+    result.search_ms = elapsed_ms(t_search_start, t_search_end);
+
+    result.nodes_after = static_cast<uint32_t>(graph.node_info.size());
+    result.edges_after = static_cast<uint32_t>(graph.edge_info.size());
+
+    const auto t_sel_start = Clock::now();
+    const RootPick pick = select_root_column(graph);
+    const auto t_sel_end = Clock::now();
+    result.selection_ms = elapsed_ms(t_sel_start, t_sel_end);
+    result.root_count = pick.root_count;
+    result.chosen_y = pick.y;
+    result.chosen_x = top[pick.y] - 1;
+
+    return result;
 }
 
 extern "C" Point* getPoint(const int M, const int N, const int* top, const int* _board,

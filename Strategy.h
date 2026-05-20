@@ -51,6 +51,24 @@ struct GTable {
     uint32_t search(uint32_t nid, const BoardConfig& cfg, const Plate& root);
 };
 
+struct SearchBenchmarkResult {
+    int M = 0;
+    int N = 0;
+    int noX = -1;
+    int noY = -1;
+    int chosen_x = -1;
+    int chosen_y = -1;
+    double init_ms = 0;
+    double copy_ms = 0;
+    double search_ms = 0;
+    double selection_ms = 0;
+    uint32_t nodes_before = 0;
+    uint32_t edges_before = 0;
+    uint32_t nodes_after = 0;
+    uint32_t edges_after = 0;
+    uint32_t root_count = 0;
+};
+
 struct SearchContext {
     BoardConfig board;
     Plate root;
@@ -61,6 +79,8 @@ struct SearchContext {
     void load_position(int M, int N, int noX, int noY, const int* raw_board);
     Point* get_point(const int* top,
                      const std::chrono::high_resolution_clock::time_point& t0);
+    SearchBenchmarkResult benchmark_position(int M, int N, int noX, int noY, const int* top,
+                                             const int* raw_board);
 };
 
 #endif

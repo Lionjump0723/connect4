@@ -89,3 +89,13 @@ https://github.com/lightvector/KataGo/blob/master/docs/GraphSearch.md
 当使用 PUCT 选择孩子节点时，如果节点是未扩展状态，那么用孩子节点模拟值与本节点已有的值取平均后再代入公式。好处是减少方差。
 
 经过实战检验，调整 PUCT 超参与最终选择方式的超参。
+
+## 本地编译
+
+评测入口在 `main.cpp`，需定义宏 `ONLINE_JUDGE` 才会编译主程序循环。策略核心为 `Strategy.cpp` 与 `Logic.cpp`。
+
+```bash
+g++ -std=c++17 -O2 -DONLINE_JUDGE main.cpp Strategy.cpp Logic.cpp -o connect4
+```
+
+对外接口保持不变：`extern "C" Point* getPoint(...)` 与 `clearPoint(...)`（见 `Strategy.h`）。

@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <random>
 #include <vector>
 #include "Point.h"
 #include "Config.h"
@@ -48,7 +49,7 @@ struct GTable {
     void copy_table(const GTable& src_table);
     uint32_t update(uint32_t nid);
     uint32_t get_best_edge(uint32_t nid) const;
-    uint32_t search(uint32_t nid, const BoardConfig& cfg, const Plate& root);
+    uint32_t search(uint32_t nid, const BoardConfig& cfg, const Plate& root, std::mt19937& rnd);
 };
 
 struct SearchBenchmarkResult {
@@ -73,6 +74,7 @@ struct SearchContext {
     BoardConfig board;
     Plate root;
     GTable graph;
+    std::mt19937 rnd;
 
     SearchContext();
     void reset();

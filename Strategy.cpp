@@ -174,31 +174,34 @@ uint32_t GTable::get_best_edge(uint32_t nid) const {
     return ret;
 }
 
-uint32_t GTable::search(uint32_t nid, const BoardConfig& cfg, const Plate& root) {
-    Move all[16];
-    Node& node = node_info[nid];
-    if (node.S == CERTAIN) {
+uint32_t GTable::search(uint32_t nid, const BoardConfig& cfg, const Plate& root, std::mt19937& rnd) {
+    static Move all[16];
+    if (node_info[nid].S == CERTAIN) {
         return 0;
     }
-    if (node.e_end > 0) {
+    if (node_info[nid].e_end > 0) {
         uint32_t eid = get_best_edge(nid);
-        uint32_t ch_n = search(edge_info[eid].pt, cfg, root);
+        uint32_t ch_n = search(edge_info[eid].pt, cfg, root, rnd);
         if (edge_info[eid].N < ch_n) {
             edge_info[eid].N += 1;
         }
     } else {
         Plate pl = Plate::get_plate(node_key[nid], cfg, root);
         ExInfo exi = pl.build(cfg);
-        double v = pl.get_move(exi, all, node.e_end, cfg);
+        Move move_count = 0;
+        double v = pl.get_move(exi, all, move_count, cfg);
         if (v != kMoveUnknown) {
+            Node& node = node_info[nid];
             node.S = CERTAIN;
             node.Q = v;
             node.e_offset = all[0];
             node.e_beg = 0;
             node.e_end = 0;
         } else {
-            node.e_offset = edge_info.size();
-            const Move range = node.e_end;
+            const uint32_t edge_offset = edge_info.size();
+            const Move range = move_count;
+            node_info[nid].e_offset = edge_offset;
+            node_info[nid].e_end = range;
             for (Move i = 0; i < range; i++) {
                 edge_info.emplace_back();
                 edge_act.push_back(all[i]);
@@ -212,10 +215,11 @@ uint32_t GTable::search(uint32_t nid, const BoardConfig& cfg, const Plate& root)
                     node_info.emplace_back();
                     node_key.push_back(ch_key);
                     Move mv = MV_NULL;
-                    std::tie(mv, node_info.back().Q) = tmp_pl.forward_check(tmp_exi, cfg);
+                    const uint32_t child_id = hash_table[ch_slot];
+                    std::tie(mv, node_info[child_id].Q) = tmp_pl.forward_check(tmp_exi, cfg, rnd);
                     if (mv != MV_NULL) {
-                        node_info.back().S = CERTAIN;
-                        node_info.back().e_offset = mv;
+                        node_info[child_id].S = CERTAIN;
+                        node_info[child_id].e_offset = mv;
                     }
                 }
                 edge_info.back().pt = hash_table[ch_slot];
@@ -258,10 +262,11 @@ static void init_search_graph(GTable& g, const Plate& root) {
 }
 
 static void run_search_loop(GTable& g, const BoardConfig& cfg, const Plate& root,
-                            const std::chrono::high_resolution_clock::time_point& t0) {
+                            const std::chrono::high_resolution_clock::time_point& t0,
+                            std::mt19937& rnd) {
     while (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() <
                kSearchTimeSec &&
-           g.node_info.size() <= kMaxGraphNodes && g.search(g.root_id, cfg, root)) {
+           g.node_info.size() <= kMaxGraphNodes && g.search(g.root_id, cfg, root, rnd)) {
     }
 }
 
@@ -302,12 +307,13 @@ static RootPick select_root_column(GTable& g) {
 
 // --- SearchContext ---
 
-SearchContext::SearchContext() : graph(kHashTableCapacity) {}
+SearchContext::SearchContext() : graph(kHashTableCapacity), rnd(42) {}
 
 void SearchContext::reset() {
     board.reset();
     root = Plate();
     graph = GTable(kHashTableCapacity);
+    rnd.seed(42);
 }
 
 void SearchContext::load_position(int M, int N, int noX, int noY, const int* raw_board) {
@@ -325,7 +331,7 @@ Point* SearchContext::get_point(const int* top,
     PRINT_CERR << "begin graph size: node " << graph.node_info.size() << ", edge "
                << graph.edge_info.size() << std::endl;
 
-    run_search_loop(graph, board, root, t0);
+    run_search_loop(graph, board, root, t0, rnd);
 
     PRINT_CERR << "end graph size: node " << graph.node_info.size() << ", edge "
                << graph.edge_info.size() << std::endl;
@@ -358,7 +364,7 @@ SearchBenchmarkResult SearchContext::benchmark_position(int M, int N, int noX, i
     result.edges_before = static_cast<uint32_t>(graph.edge_info.size());
 
     const auto t_search_start = Clock::now();
-    run_search_loop(graph, board, root, t_search_start);
+    run_search_loop(graph, board, root, t_search_start, rnd);
     const auto t_search_end = Clock::now();
     result.search_ms = elapsed_ms(t_search_start, t_search_end);
 

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <utility>
 #include <functional>
+#include <random>
 #include "Config.h"
 
 // Bitboard: 3 x uint64, 16 bits per column (up to 4 columns per word).
@@ -171,7 +172,8 @@ struct Plate {
     double get_move(const ExInfo& exi, Move* data, Move& count, const BoardConfig& cfg) const;
 
     // Rollout from this position. MV_NULL move => unknown leaf value.
-    std::tuple<Move, double> forward_check(const ExInfo& exi, const BoardConfig& cfg) const;
+    std::tuple<Move, double> forward_check(const ExInfo& exi, const BoardConfig& cfg,
+                                           std::mt19937& rnd) const;
 };
 
 Plate make_root_plate(const BoardConfig& cfg, const int* raw_board);

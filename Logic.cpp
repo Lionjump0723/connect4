@@ -200,8 +200,8 @@ double Plate::get_move(const ExInfo& exi, Move* data, Move& count, const BoardCo
     }
 }
 
-std::tuple<Move, double> Plate::forward_check(const ExInfo& _exi, const BoardConfig& cfg) const {
-    std::mt19937 rnd(42);
+std::tuple<Move, double> Plate::forward_check(const ExInfo& _exi, const BoardConfig& cfg,
+                                              std::mt19937& rnd) const {
     Move all[16];
     Move candidate[16];
     Move aggressive[16];

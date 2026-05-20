@@ -3,11 +3,13 @@
 #include <cstdint>
 
 // Define PRINT (for example, compile with -DPRINT) to enable debug logs.
+// #define PRINT
 #ifdef PRINT
 #define PRINT_CERR std::cerr
 #else
 #define PRINT_CERR if (true) {} else std::cerr
 #endif
+// #undef PRINT
 
 const uint32_t REF_NULL = UINT32_MAX;
 

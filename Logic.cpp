@@ -11,16 +11,16 @@ Plate::Key Plate::get_key() const {
 }
 
 Plate Plate::get_plate(const Key& key) {
-    return {
-        .my_point = key.second.first,
-        .bo_point = key.second.second,
-        .atop = (key.second.second | NO_POINT).getTop() & VALID_POINT,
-        .h = key.first,
-        .vacant = (uint8_t)(VALID_POINT ^ key.second.second).count(),
-        .role = ((current_plate.bo_point.count() + key.second.second.count()) & 1)
-                    ? (uint8_t)(1 - current_plate.role)
-                    : current_plate.role,
-    };
+    Plate ret;
+    ret.my_point = key.second.first;
+    ret.bo_point = key.second.second;
+    ret.atop = (key.second.second | NO_POINT).getTop() & VALID_POINT;
+    ret.h = key.first;
+    ret.vacant = (uint8_t)(VALID_POINT ^ key.second.second).count();
+    ret.role = ((current_plate.bo_point.count() + key.second.second.count()) & 1)
+                   ? (uint8_t)(1 - current_plate.role)
+                   : current_plate.role;
+    return ret;
 }
 
 ExInfo Plate::build() const {

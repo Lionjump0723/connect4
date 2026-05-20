@@ -128,6 +128,21 @@ inline int BitBoard::count() const {
     return __builtin_popcountll(arr[0]) + __builtin_popcountll(arr[1]) + __builtin_popcountll(arr[2]);
 }
 
+// Per-board geometry, masks, and Zobrist table (no global static state).
+struct BoardConfig {
+    int M = -1;
+    int N = -1;
+    int noX = -1;
+    int noY = -1;
+    BitBoard VALID_POINT = {{0, 0, 0}};
+    BitBoard NO_POINT = {{0, 0, 0}};
+    uint32_t random_z_hash[192][2] = {};
+    bool configured = false;
+
+    void configure(int M, int N, int noX, int noY);
+    void reset();
+};
+
 // Cached threat and drop masks for rollout / get_move
 struct ExInfo {
     BitBoard my_h3, en_h3;  // horizontal/diag open threes
@@ -136,12 +151,6 @@ struct ExInfo {
 };
 
 struct Plate {
-    static int M, N, noX, noY;
-    static BitBoard VALID_POINT, NO_POINT;
-    static uint32_t random_z_hash[192][2];
-    static bool sflag;
-    static Plate current_plate;
-
     BitBoard my_point;  // our stones (xor with bo_point for opponent)
     BitBoard bo_point;  // all stones on board
     BitBoard atop;      // first playable cell per column
@@ -152,20 +161,20 @@ struct Plate {
     typedef std::pair<uint32_t, std::pair<BitBoard, BitBoard>> Key;
 
     Key get_key() const;
-    static Plate get_plate(const Key& key);
-    ExInfo build() const;
-    static void init(int _M, int _N, int _noX, int _noY, const int* _board);
-    void print() const;
-    void step(int y);
-    void step_exi(int y, ExInfo& exi);
+    static Plate get_plate(const Key& key, const BoardConfig& cfg, const Plate& root);
+    ExInfo build(const BoardConfig& cfg) const;
+    void print(const BoardConfig& cfg) const;
+    void step(int y, const BoardConfig& cfg);
+    void step_exi(int y, ExInfo& exi, const BoardConfig& cfg);
 
     // Returns kMoveUnknown (-2) if undecided; else value in [-1, 1] with Rdelta tie-break.
-    // Fills data[] with legal columns; count = number of moves.
-    double get_move(const ExInfo& exi, Move* data, Move& count) const;
+    double get_move(const ExInfo& exi, Move* data, Move& count, const BoardConfig& cfg) const;
 
     // Rollout from this position. MV_NULL move => unknown leaf value.
-    std::tuple<Move, double> forward_check(const ExInfo& exi) const;
+    std::tuple<Move, double> forward_check(const ExInfo& exi, const BoardConfig& cfg) const;
 };
+
+Plate make_root_plate(const BoardConfig& cfg, const int* raw_board);
 
 template <>
 struct std::hash<Plate::Key> {

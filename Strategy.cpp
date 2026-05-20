@@ -5,19 +5,6 @@
 #include <cassert>
 #include "Strategy.h"
 
-int Plate::M = -1;
-int Plate::N = -1;
-int Plate::noX = -1;
-int Plate::noY = -1;
-
-BitBoard Plate::VALID_POINT = {{0, 0, 0}};
-BitBoard Plate::NO_POINT = {{0, 0, 0}};
-uint32_t Plate::random_z_hash[192][2] = {};
-bool Plate::sflag = true;
-Plate Plate::current_plate;
-
-static GTable graph(kHashTableCapacity);
-
 // --- GTable ---
 
 uint32_t GTable::memory_Byte() const {
@@ -49,7 +36,6 @@ uint32_t GTable::find_slot(const Plate::Key& key) {
     return h;
 }
 
-// Copy-on-write subtree reuse from previous search graph
 void GTable::copy_node(uint32_t dst_id, const GTable& src_table, uint32_t src_id) {
     node_info[dst_id] = src_table.node_info[src_id];
     node_key[dst_id] = src_table.node_key[src_id];
@@ -113,7 +99,6 @@ uint32_t GTable::update(uint32_t nid) {
         Node& ch = node_info[e.pt];
         if (ch.S == CERTAIN) {
             if (ch.Q < 0) {
-                // Win cut: opponent has forced win on this branch
                 std::swap(edge_info[node.e_offset + i], edge_info[node.e_offset]);
                 std::swap(edge_act[node.e_offset + i], edge_act[node.e_offset]);
                 node.e_beg = node.e_end;
@@ -161,7 +146,6 @@ uint32_t GTable::update(uint32_t nid) {
     }
 }
 
-// PUCT child selection; unexpanded child uses (node.U - ch.Q) / 2
 uint32_t GTable::get_best_edge(uint32_t nid) const {
     double max_gain = -2;
     uint32_t ret = REF_NULL;
@@ -190,25 +174,23 @@ uint32_t GTable::get_best_edge(uint32_t nid) const {
     return ret;
 }
 
-uint32_t GTable::search(uint32_t nid) {
-    static Move all[16];
-    // FIXME: references may invalidate if vectors reallocate during expand
+uint32_t GTable::search(uint32_t nid, const BoardConfig& cfg, const Plate& root) {
+    Move all[16];
     Node& node = node_info[nid];
     if (node.S == CERTAIN) {
         return 0;
     }
     if (node.e_end > 0) {
         uint32_t eid = get_best_edge(nid);
-        uint32_t ch_n = search(edge_info[eid].pt);
+        uint32_t ch_n = search(edge_info[eid].pt, cfg, root);
         if (edge_info[eid].N < ch_n) {
             edge_info[eid].N += 1;
         }
     } else {
-        Plate pl = Plate::get_plate(node_key[nid]);
-        ExInfo exi = pl.build();
-        double v = pl.get_move(exi, all, node.e_end);
+        Plate pl = Plate::get_plate(node_key[nid], cfg, root);
+        ExInfo exi = pl.build(cfg);
+        double v = pl.get_move(exi, all, node.e_end, cfg);
         if (v != kMoveUnknown) {
-            // Leaf certainty: recommended column stored in e_offset when e_end == 0
             node.S = CERTAIN;
             node.Q = v;
             node.e_offset = all[0];
@@ -222,7 +204,7 @@ uint32_t GTable::search(uint32_t nid) {
                 edge_act.push_back(all[i]);
                 Plate tmp_pl = pl;
                 ExInfo tmp_exi = exi;
-                tmp_pl.step_exi(all[i], tmp_exi);
+                tmp_pl.step_exi(all[i], tmp_exi, cfg);
                 Plate::Key ch_key = tmp_pl.get_key();
                 uint32_t ch_slot = find_slot(ch_key);
                 if (hash_table[ch_slot] == REF_NULL) {
@@ -230,7 +212,7 @@ uint32_t GTable::search(uint32_t nid) {
                     node_info.emplace_back();
                     node_key.push_back(ch_key);
                     Move mv = MV_NULL;
-                    std::tie(mv, node_info.back().Q) = tmp_pl.forward_check(tmp_exi);
+                    std::tie(mv, node_info.back().Q) = tmp_pl.forward_check(tmp_exi, cfg);
                     if (mv != MV_NULL) {
                         node_info.back().S = CERTAIN;
                         node_info.back().e_offset = mv;
@@ -243,10 +225,10 @@ uint32_t GTable::search(uint32_t nid) {
     return update(nid);
 }
 
-// --- getPoint helpers ---
+// --- Search helpers ---
 
-static void init_search_graph(GTable& g) {
-    Plate::Key root_key = Plate::current_plate.get_key();
+static void init_search_graph(GTable& g, const Plate& root) {
+    Plate::Key root_key = root.get_key();
     g.root_id = g.hash_table[g.find_slot(root_key)];
     GTable new_graph(kHashTableCapacity);
     if (g.root_id != REF_NULL) {
@@ -264,10 +246,11 @@ static void init_search_graph(GTable& g) {
     std::swap(g, new_graph);
 }
 
-static void run_search_loop(GTable& g, const std::chrono::high_resolution_clock::time_point& t0) {
+static void run_search_loop(GTable& g, const BoardConfig& cfg, const Plate& root,
+                            const std::chrono::high_resolution_clock::time_point& t0) {
     while (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0).count() <
                kSearchTimeSec &&
-           g.node_info.size() <= kMaxGraphNodes && g.search(g.root_id)) {
+           g.node_info.size() <= kMaxGraphNodes && g.search(g.root_id, cfg, root)) {
     }
 }
 
@@ -306,23 +289,32 @@ static int select_root_column(GTable& g) {
     return y;
 }
 
-extern "C" Point* getPoint(const int M, const int N, const int* top, const int* _board,
-                           const int lastX, const int lastY, const int noX, const int noY) {
-    (void)lastX;
-    (void)lastY;
+// --- SearchContext ---
 
-    auto t1 = std::chrono::high_resolution_clock::now();
+SearchContext::SearchContext() : graph(kHashTableCapacity) {}
 
-    Plate::init(M, N, noX, noY, _board);
-    init_search_graph(graph);
+void SearchContext::reset() {
+    board.reset();
+    root = Plate();
+    graph = GTable(kHashTableCapacity);
+}
+
+void SearchContext::load_position(int M, int N, int noX, int noY, const int* raw_board) {
+    board.configure(M, N, noX, noY);
+    root = make_root_plate(board, raw_board);
+    init_search_graph(graph, root);
+}
+
+Point* SearchContext::get_point(const int* top,
+                                const std::chrono::high_resolution_clock::time_point& t0) {
     PRINT_CERR << "init_time: "
-               << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t1)
+               << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t0)
                       .count()
                << std::endl;
     PRINT_CERR << "begin graph size: node " << graph.node_info.size() << ", edge "
                << graph.edge_info.size() << std::endl;
 
-    run_search_loop(graph, t1);
+    run_search_loop(graph, board, root, t0);
 
     PRINT_CERR << "end graph size: node " << graph.node_info.size() << ", edge "
                << graph.edge_info.size() << std::endl;
@@ -330,6 +322,17 @@ extern "C" Point* getPoint(const int M, const int N, const int* top, const int* 
 
     int y = select_root_column(graph);
     return new Point(top[y] - 1, y);
+}
+
+extern "C" Point* getPoint(const int M, const int N, const int* top, const int* _board,
+                           const int lastX, const int lastY, const int noX, const int noY) {
+    (void)lastX;
+    (void)lastY;
+
+    thread_local SearchContext ctx;
+    auto t0 = std::chrono::high_resolution_clock::now();
+    ctx.load_position(M, N, noX, noY, _board);
+    return ctx.get_point(top, t0);
 }
 
 extern "C" void clearPoint(Point* p) {

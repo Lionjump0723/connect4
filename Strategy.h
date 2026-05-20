@@ -5,6 +5,7 @@
 #ifndef STRATEGY_H_
 #define STRATEGY_H_
 
+#include <chrono>
 #include <cstdint>
 #include <vector>
 #include "Point.h"
@@ -47,7 +48,19 @@ struct GTable {
     void copy_table(const GTable& src_table);
     uint32_t update(uint32_t nid);
     uint32_t get_best_edge(uint32_t nid) const;
-    uint32_t search(uint32_t nid);
+    uint32_t search(uint32_t nid, const BoardConfig& cfg, const Plate& root);
+};
+
+struct SearchContext {
+    BoardConfig board;
+    Plate root;
+    GTable graph;
+
+    SearchContext();
+    void reset();
+    void load_position(int M, int N, int noX, int noY, const int* raw_board);
+    Point* get_point(const int* top,
+                     const std::chrono::high_resolution_clock::time_point& t0);
 };
 
 #endif

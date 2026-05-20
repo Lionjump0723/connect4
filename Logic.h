@@ -37,6 +37,97 @@ struct BitBoard {
     int count() const;
 };
 
+inline bool BitBoard::operator==(const BitBoard& other) const {
+    return arr[0] == other.arr[0] && arr[1] == other.arr[1] && arr[2] == other.arr[2];
+}
+
+inline void BitBoard::set(int x, int y) {
+    arr[y >> 2] |= 1ull << (x + ((y & 3) << 4));
+}
+
+inline void BitBoard::unset(int x, int y) {
+    arr[y >> 2] &= ~(1ull << (x + ((y & 3) << 4)));
+}
+
+inline bool BitBoard::test(int x, int y) const {
+    return arr[y >> 2] & (1ull << (x + ((y & 3) << 4)));
+}
+
+inline bool BitBoard::test_col(int y) const {
+    return arr[y >> 2] & (0xffffull << ((y & 3) << 4));
+}
+
+inline BitBoard BitBoard::operator&(const BitBoard& other) const {
+    return {{arr[0] & other.arr[0], arr[1] & other.arr[1], arr[2] & other.arr[2]}};
+}
+
+inline BitBoard BitBoard::operator|(const BitBoard& other) const {
+    return {{arr[0] | other.arr[0], arr[1] | other.arr[1], arr[2] | other.arr[2]}};
+}
+
+inline BitBoard BitBoard::operator^(const BitBoard& other) const {
+    return {{arr[0] ^ other.arr[0], arr[1] ^ other.arr[1], arr[2] ^ other.arr[2]}};
+}
+
+inline void BitBoard::operator&=(const BitBoard& other) {
+    arr[0] &= other.arr[0];
+    arr[1] &= other.arr[1];
+    arr[2] &= other.arr[2];
+}
+
+inline void BitBoard::operator|=(const BitBoard& other) {
+    arr[0] |= other.arr[0];
+    arr[1] |= other.arr[1];
+    arr[2] |= other.arr[2];
+}
+
+inline void BitBoard::operator^=(const BitBoard& other) {
+    arr[0] ^= other.arr[0];
+    arr[1] ^= other.arr[1];
+    arr[2] ^= other.arr[2];
+}
+
+inline BitBoard BitBoard::getTop() const {
+    return {{arr[0] + 0x1000100010001ull, arr[1] + 0x1000100010001ull, arr[2] + 0x1000100010001ull}};
+}
+
+inline BitBoard BitBoard::operator>>(int val) const {
+    return {{(arr[0] >> val) | (arr[1] << (64 - val)), (arr[1] >> val) | (arr[2] << (64 - val)), arr[2] >> val}};
+}
+
+inline BitBoard BitBoard::operator<<(int val) const {
+    return {{(arr[0] << val), (arr[1] << val) | (arr[0] >> (64 - val)), (arr[2] << val) | (arr[1] >> (64 - val))}};
+}
+
+inline BitBoard BitBoard::h3Win() const {
+    BitBoard ret = {{0, 0, 0}}, amask, omask;
+#define help_h3Win(x, op0, op1)           \
+    amask = (*this) op0 x;                \
+    omask = (*this) op1(3 * x);           \
+    omask |= amask;                       \
+    amask &= (*this);                     \
+    ret |= omask & (amask op1(2 * x));    \
+    ret |= (omask op0(2 * x)) & (amask op0 x)
+
+    help_h3Win(16, <<, >>);
+    help_h3Win(15, <<, >>);
+    help_h3Win(17, <<, >>);
+#undef help_h3Win
+    return ret;
+}
+
+inline BitBoard BitBoard::v1Win() const {
+    return {{
+        (arr[0] << 3) & (arr[0] << 2) & (arr[0] << 1),
+        (arr[1] << 3) & (arr[1] << 2) & (arr[1] << 1),
+        (arr[2] << 3) & (arr[2] << 2) & (arr[2] << 1),
+    }};
+}
+
+inline int BitBoard::count() const {
+    return __builtin_popcountll(arr[0]) + __builtin_popcountll(arr[1]) + __builtin_popcountll(arr[2]);
+}
+
 // Cached threat and drop masks for rollout / get_move
 struct ExInfo {
     BitBoard my_h3, en_h3;  // horizontal/diag open threes

@@ -2,6 +2,13 @@
 #define CONFIG_H_
 #include <cstdint>
 
+// Define PRINT (for example, compile with -DPRINT) to enable debug logs.
+#ifdef PRINT
+#define PRINT_CERR std::cerr
+#else
+#define PRINT_CERR if (true) {} else std::cerr
+#endif
+
 const uint32_t REF_NULL = UINT32_MAX;
 
 typedef uint8_t Move;

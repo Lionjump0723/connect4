@@ -258,9 +258,9 @@ static void init_search_graph(GTable& g) {
         new_graph.node_info.emplace_back();
         new_graph.node_key.push_back(root_key);
     }
-    std::cerr << "memory peak: "
-              << (g.memory_Byte() + new_graph.memory_Byte() + 0.0) / 1048576 << "MB"
-              << std::endl;
+    PRINT_CERR << "memory peak: "
+               << (g.memory_Byte() + new_graph.memory_Byte() + 0.0) / 1048576 << "MB"
+               << std::endl;
     std::swap(g, new_graph);
 }
 
@@ -281,7 +281,7 @@ static int select_root_column(GTable& g) {
         } else {
             y = root_node.e_offset;
         }
-        std::cerr << "certain!" << root_node.Q << " " << y << std::endl;
+        PRINT_CERR << "certain!" << root_node.Q << " " << y << std::endl;
     } else {
         uint32_t max_n = 0;
         double ch_Q = -2;
@@ -301,7 +301,7 @@ static int select_root_column(GTable& g) {
                 ch_Q = best_Q;
             }
         }
-        std::cerr << ch_Q << " " << y << std::endl;
+        PRINT_CERR << ch_Q << " " << y << std::endl;
     }
     return y;
 }
@@ -315,18 +315,18 @@ extern "C" Point* getPoint(const int M, const int N, const int* top, const int* 
 
     Plate::init(M, N, noX, noY, _board);
     init_search_graph(graph);
-    std::cerr << "init_time: "
-              << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t1)
-                     .count()
-              << std::endl;
-    std::cerr << "begin graph size: node " << graph.node_info.size() << ", edge "
-              << graph.edge_info.size() << std::endl;
+    PRINT_CERR << "init_time: "
+               << std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - t1)
+                      .count()
+               << std::endl;
+    PRINT_CERR << "begin graph size: node " << graph.node_info.size() << ", edge "
+               << graph.edge_info.size() << std::endl;
 
     run_search_loop(graph, t1);
 
-    std::cerr << "end graph size: node " << graph.node_info.size() << ", edge "
-              << graph.edge_info.size() << std::endl;
-    std::cerr << "root count: " << graph.update(graph.root_id) << std::endl;
+    PRINT_CERR << "end graph size: node " << graph.node_info.size() << ", edge "
+               << graph.edge_info.size() << std::endl;
+    PRINT_CERR << "root count: " << graph.update(graph.root_id) << std::endl;
 
     int y = select_root_column(graph);
     return new Point(top[y] - 1, y);

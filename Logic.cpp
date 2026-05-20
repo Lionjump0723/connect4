@@ -175,12 +175,12 @@ void Plate::print() const {
     for (int i = 0; i < M; i++) {
         for (int j = 0; j < N; j++) {
             if (bo_point.test(M - 1 - i, j)) {
-                std::cerr << (my_point.test(M - 1 - i, j) ? "2 " : "1 ");
+                PRINT_CERR << (my_point.test(M - 1 - i, j) ? "2 " : "1 ");
             } else {
-                std::cerr << "0 ";
+                PRINT_CERR << "0 ";
             }
         }
-        std::cerr << std::endl;
+        PRINT_CERR << std::endl;
     }
 }
 

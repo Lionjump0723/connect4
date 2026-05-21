@@ -175,7 +175,7 @@ uint32_t GTable::get_best_edge(uint32_t nid) const {
 }
 
 uint32_t GTable::search(uint32_t nid, const BoardConfig& cfg, const Plate& root, std::mt19937& rnd) {
-    static Move all[16];
+    Move all[16];
     if (node_info[nid].S == CERTAIN) {
         return 0;
     }

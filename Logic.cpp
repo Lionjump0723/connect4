@@ -27,7 +27,7 @@ void BoardConfig::configure(int _M, int _N, int _noX, int _noY) {
     VALID_POINT = {{0, 0, 0}};
     NO_POINT = {{0, 0, 0}};
 
-    std::mt19937 my_rnd(42);
+    std::mt19937_64 my_rnd(42);
     for (int i = 0; i < 192; i++) {
         random_z_hash[i][0] = my_rnd();
         random_z_hash[i][1] = my_rnd();
@@ -44,7 +44,7 @@ void BoardConfig::configure(int _M, int _N, int _noX, int _noY) {
 
 Plate make_root_plate(const BoardConfig& cfg, const int* raw_board) {
     assert(cfg.configured);
-    uint32_t h = 0;
+    uint64_t h = 0;
     BitBoard my_point = {{0, 0, 0}}, bo_point = {{0, 0, 0}};
     for (int i = 0; i < cfg.M; i++) {
         for (int j = 0; j < cfg.N; j++) {

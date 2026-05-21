@@ -137,7 +137,7 @@ struct BoardConfig {
     int noY = -1;
     BitBoard VALID_POINT = {{0, 0, 0}};
     BitBoard NO_POINT = {{0, 0, 0}};
-    uint32_t random_z_hash[192][2] = {};
+    uint64_t random_z_hash[192][2] = {};
     bool configured = false;
 
     void configure(int M, int N, int noX, int noY);
@@ -155,11 +155,11 @@ struct Plate {
     BitBoard my_point;  // our stones (xor with bo_point for opponent)
     BitBoard bo_point;  // all stones on board
     BitBoard atop;      // first playable cell per column
-    uint32_t h;         // Zobrist hash
+    uint64_t h;         // Zobrist hash
     Move vacant;
     uint8_t role;
 
-    typedef std::pair<uint32_t, std::pair<BitBoard, BitBoard>> Key;
+    typedef std::pair<uint64_t, std::pair<BitBoard, BitBoard>> Key;
 
     Key get_key() const;
     static Plate get_plate(const Key& key, const BoardConfig& cfg, const Plate& root);
